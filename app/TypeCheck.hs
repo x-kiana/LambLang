@@ -49,9 +49,14 @@ checkType env expr t =
      Ann body bodyT -> do 
         checkExpectedType expr t bodyT;
         checkType env body t
-      --   Data: IOBind (A -> IOT B) (IOT A)  :: IOT B  where first Expr evaluates to some IOT A and the Lambda outputs some Lambda A -> IOT B, and the type of the entire thing is IOT B
-      --   Type: 
-     -- IOBind Expr Expr -> 
+      --   Data: IOBind (A -> IOT B) (IOT A)  :: IOT B       IOBind fn arg -> 
+     IOBind fn arg -> do 
+        (_, fnT) <- synthType env fn 
+        case fnT of 
+          FunT argT bodyT -> do
+            -- since this is an IOBind, the argument type is wrapped in an IOT
+            checkType env arg (IOT argT);
+          o -> Left (incorrectFnTypeSynthesisError expr o)
      IOReturn body ->  
         case t of 
           IOT mt -> checkType env body mt
@@ -94,6 +99,5 @@ synthType env expr =
       IOReturn retExpr -> do 
         (_, exprT)<- synthType env retExpr;
         Right (expr, IOT exprT)
-      _ -> undefined
 
 
