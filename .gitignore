@@ -4,5 +4,5 @@
 !LICENSE
 !README.md
 !app/
-!app/*
+!app/*.hs
 !*.cabal

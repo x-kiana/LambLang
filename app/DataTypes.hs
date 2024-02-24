@@ -1,3 +1,4 @@
+module DataTypes where
 
 data Expr =
      Var String
@@ -10,8 +11,7 @@ data Expr =
    | IOReturn Expr
 
 data Type =
-    StrT
-  | UnitT
-  | FunT Type Type
-  | IOT Type
-
+     StrT
+   | UnitT
+   | FunT Type Type
+   | IOT Type
