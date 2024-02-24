@@ -9,9 +9,11 @@ data Expr =
    | Ann Expr Type
    | IOBind Expr Expr
    | IOReturn Expr
+   deriving Show
 
 data Type =
      StrT
    | UnitT
    | FunT Type Type
    | IOT Type
+   deriving Show
