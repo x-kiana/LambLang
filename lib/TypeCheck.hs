@@ -10,8 +10,8 @@ type TypeEnv = Map String Type
 {- Given an expression and a type, returns Right Expr if the Expression matches the type. Returns
  - an error otherwise
  -}
-typeCheck :: Expr -> Type -> Either String Expr
-typeCheck = undefined
+-- typeCheck :: Expr -> Type -> Either String Expr
+-- typeCheck = undefined
 
 
 checkExpectedType :: Expr -> Type -> Type -> Either String Expr
@@ -45,21 +45,30 @@ checkType env expr t =
         case fnT of 
           FunT argT bodyT -> do 
             checkType env arg argT;
+            Right expr
           o -> Left (incorrectFnTypeSynthesisError expr o)
      Ann body bodyT -> do 
         checkExpectedType expr t bodyT;
-        checkType env body t
+        checkType env body t;
+        Right expr
       --   Data: IOBind (A -> IOT B) (IOT A)  :: IOT B       IOBind fn arg -> 
-     IOBind fn arg -> do 
+     IOBind fn arg -> do
         (_, fnT) <- synthType env fn 
         case fnT of 
-          FunT argT bodyT -> do
-            -- since this is an IOBind, the argument type is wrapped in an IOT
-            checkType env arg (IOT argT);
+          FunT argT bodyT -> 
+            case bodyT of 
+              IOT bodyTUnwrapped -> 
+                do
+                -- since this is an IOBind, the argument type is wrapped in an IOT
+                checkType env arg (IOT argT);
+                Right expr
+              o -> Left (incorrectTypeError expr o)
           o -> Left (incorrectFnTypeSynthesisError expr o)
      IOReturn body ->  
         case t of 
-          IOT mt -> checkType env body mt
+          IOT rt -> do 
+            checkType env body rt;
+            Right expr
           o -> Left (incorrectTypeError expr t)
      _ -> do 
       (_, exprT) <- synthType env expr

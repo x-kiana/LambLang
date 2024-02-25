@@ -23,14 +23,33 @@ extra-source-files:
     CHANGELOG.md
     README.md
 
+library 
+  exposed-modules: DataTypes,  TypeCheck
+  hs-source-dirs: lib
+  build-depends: base >=4.14.3.0, containers
+  default-language: Haskell2010
+
 executable LambLang
     main-is:          Main.hs
 
     -- Modules included in this executable, other than Main.
-    other-modules: TypeCheck
+    -- other-modules: TypeCheck
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
-    build-depends:    base >=4.14.3.0, containers
+    build-depends:    base >=4.14.3.0, LambLang
     hs-source-dirs:   app
     default-language: Haskell2010
+
+test-suite tests 
+  type: exitcode-stdio-1.0
+  main-is: test.hs 
+  build-depends: base >=4.14.3.0, HUnit, LambLang, containers
+  other-modules: TypeCheckerTests
+  hs-source-dirs: tests 
+  default-language: Haskell2010
+  ghc-options: 
+    -fhpc
+    -hpcdir hpc/mix/tests
+    -tmpdir hpc/tests
+
