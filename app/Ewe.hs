@@ -27,6 +27,7 @@ instance Functor (Parser t) where
 
 instance Applicative (Parser t) where
   pure = Pure
+
   (<*>) = App
 
 instance Alternative (Parser t) where
@@ -42,7 +43,9 @@ evalParser (Is p) (hd : tl) | p hd = Just (hd, tl)
 evalParser (Is p) _ = Nothing
 evalParser (Many p) ts = (evalParser p ts >>= \(hd, ts) -> evalParser (Many p) ts >>= \(tl, ts) -> Just (hd : tl, ts)) <|> Just ([], ts)
 evalParser (Choice a b) ts = evalParser a ts <|> evalParser b ts
-evalParser (Seq a b) ts = evalParser a ts >>= \(_, ts) -> evalParser b ts
+evalParser (Seq a b) ts = do
+  (_, ts) <- evalParser a ts
+  evalParser b ts
 evalParser (App pf pa) ts = do
   (f, ts) <- evalParser pf ts
   (a, ts) <- evalParser pa ts

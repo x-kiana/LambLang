@@ -30,7 +30,7 @@ appP =
 
 lamP :: Parser Char Expr
 lamP = do
-  (tok 'λ' <|> tok '\\')
+  tok '\\'
   whitespace
   x <- varP
   whitespace
@@ -38,3 +38,29 @@ lamP = do
   whitespace
   body <- exprP
   pure (Lam x body)
+
+annP :: Parser Char Expr
+annP = do
+  exp <- appP
+  maybeT <- (do
+    whitespace
+    tok ':'
+    whitespace
+    t <- typP
+    pure (Just t)) <|> pure Nothing
+  pure (maybe exp (Ann exp) maybeT)
+
+typP :: Parser Char Type
+typP = undefined
+
+{-
+exprP :: Parser Char Expr
+exprP = precedenceP [ annP, appP ] argP = annP $ appP $ argP
+
+precedenceP :: [Parser Char Expr -> Parser Char Expr] -> (Parser Char Expr) -> Parser Char Expr
+precedenceP ps p = foldr ($) p ps
+
+precP :: [(Parser Char (), Expr -> Expr -> Expr)] -> (Parser Char Expr) -> Parser Char Expr
+
+exprP = precP [(whitespace *> tok ':'
+-}
