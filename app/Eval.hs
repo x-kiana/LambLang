@@ -1,35 +1,45 @@
-module Eval where
+module Eval {eval} where
 import DataTypes
 
+-- Datatype representing values in LambLang
 data Val =
      StrV String
    | UnitV
    | FunV (Val -> Either String Val)
    | IOV (IO (Either String Val))
 
+-- An environment to keep track of values
+-- Implemented as a list of tuples of the variable names and their values
 type ValEnv = [(String, Val)]
 
+-- Return value associated with given variable name in given environment
+-- Or error if it doesn't exist in the environment (i.e. unbound)
 envLookup :: ValEnv -> String -> Either String Val
 envLookup [] str = Left "Unbound variable"
 envLookup ((x, y):rest) str
    | str == x = Right y
    | otherwise = envLookup rest str
 
+-- Return new environment with given variable name and its value added to the given env
 envPut :: String -> Val -> ValEnv -> ValEnv
 envPut str v valEnv = (str, v):valEnv
 
+-- builtin function value to print strings
 printStr :: Val
 printStr = FunV (\(StrV s) -> Right (IOV (putStr s >> return (Right UnitV))))
 
+-- builtin IO value to read strings
 readStr :: Val
 readStr = IOV (do
   s <- readLn
   return (Right (StrV s)))
 
+-- initial environment, includes the builting readStr and printStr values
 initEnv :: ValEnv
 initEnv = envPut "readStr" readStr (envPut "printStr" printStr [])
 
--- Assume that Expr has type IOT UnitT
+-- Evaluates the given LambLang expression in the initEnv
+-- Assumes that Expr has type IOT UnitT, otherwise throws a runtime error
 eval :: Expr -> IO ()
 eval e =
     case eval' initEnv e of
@@ -42,6 +52,8 @@ eval e =
       Left msg -> do
           print msg
 
+-- Helper evaluater function called by the wrapper eval function
+-- Evaluate given Expr in given environment, if evaluates to a value return it, otherwise throw a runtime error
 eval' :: ValEnv -> Expr -> Either String Val
 eval' valEnv (Var x) = envLookup valEnv x
 eval' valEnv (Lam x body) = Right (FunV (\val -> (eval' (envPut x val valEnv) body)))
