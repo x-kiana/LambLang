@@ -1,4 +1,5 @@
-module DataTypes where 
+module DataTypes where
+
 data Expr =
      Var String
    | Lam String Expr

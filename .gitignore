@@ -4,7 +4,7 @@
 !LICENSE
 !README.md
 !app/
-!app/*
+!app/*.hs
 !lib/
 !lib/*
 !tests/
