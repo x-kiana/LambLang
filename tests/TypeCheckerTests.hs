@@ -200,9 +200,9 @@ testUnAnnotatedLamApp = TestCase
   (let  expr = App (Lam "arg" (Var "arg")) (StrLit "x")
         env = Map.empty
     in 
-    assertBool "Unannotated Lam cannot be applied"  
-      (isLeft 
-        (checkType env expr StrT)))
+    assertEqual "Unannotated Lam cannot be applied"  
+        (checkType env expr StrT)
+        (Right expr))
 
 testIncorrectEnvType :: Test 
 testIncorrectEnvType = TestCase
@@ -484,8 +484,8 @@ testEnvSynthIOReturn = TestCase
         (synthType env expr)
         (Right (expr, t)))
 
--- Synth Complex
-testSynthComplex = TestCase 
+-- Complex
+testCheckTypeIOBindInfer = TestCase 
   (let 
       t = IOT StrT
       expr = 
@@ -498,6 +498,44 @@ testSynthComplex = TestCase
             (FunT (FunT StrT StrT) (IOT StrT)))
           (Lam "x" (Var "x"))
       env = Map.fromList [("scanf", FunT UnitT (IOT StrT))]
+    in 
+      assertEqual "Only top level annotation is required"
+        (checkType env expr t)
+        (Right expr))
+
+testSynthIOBindInfer = TestCase 
+  (let 
+      t = IOT StrT
+      expr = 
+        App 
+          (Ann 
+            (Lam "x" 
+              (IOBind
+                (App (Var "scanf") UnitLit)
+                (Lam "y" (IOReturn (App (Var "x") (Var "y"))))))
+            (FunT (FunT StrT StrT) (IOT StrT)))
+          (Lam "x" (Var "x"))
+      env = Map.fromList [("scanf", FunT UnitT (IOT StrT))]
+    in 
+      assertEqual "Only top level annotation is required"
+        (synthType env expr)
+        (Right (expr, t)))
+
+
+testCheckTypeAppInfer :: Test 
+testCheckTypeAppInfer = TestCase 
+  (let 
+      t = StrT
+      expr = 
+        App 
+          (Ann 
+            (Lam "x" 
+              (App
+                (Lam "y" (App (Var "x") (Var "y")))
+                (App (Var "mapStr") UnitLit)))
+            (FunT (FunT StrT StrT) StrT))
+          (Lam "x" (Var "x"))
+      env = Map.fromList [("mapStr", FunT UnitT StrT)]
     in 
       assertEqual "Only top level annotation is required"
         (checkType env expr t)
@@ -557,6 +595,8 @@ huTests = TestList [
   , testSynthBadIOBindFunErr
   , testSynthIOReturn
   , testEnvSynthIOReturn
-  , testSynthComplex
+  , testSynthIOBindInfer
+  , testCheckTypeIOBindInfer
+  , testCheckTypeAppInfer
   ]
 

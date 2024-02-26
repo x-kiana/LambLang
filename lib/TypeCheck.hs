@@ -54,35 +54,42 @@ checkType env expr t =
         o -> Left (TypeCheckError expr t)
     Ann body bodyT -> do 
       checkType env body bodyT;
-      if bodyT == t 
-      then Right expr
-      else Left (TypeCheckError expr t)
+      matchExpectedType t bodyT expr
     IOReturn body ->
       (case t of 
           IOT rt -> do 
             checkType env body rt;
             Right expr
           o -> Left (TypeCheckError expr t))
+    App fnExpr argExpr ->
+      case synthType env expr of 
+          Right (_, exprT) -> 
+            matchExpectedType t exprT expr
+          Left _ -> do
+            (_, argT) <- synthType env argExpr
+            checkType env fnExpr (FunT argT t);
+            Right expr
     IOBind argExpr fnExpr -> 
        case synthType env expr of
          Right (_, exprT) -> 
-            if exprT == t 
-            then Right expr 
-            else Left (TypeCheckError expr t)
+            matchExpectedType t exprT expr
          Left _  -> do 
             (_, wrappedArgT) <- synthType env argExpr;
             case (wrappedArgT, t) of 
               (IOT argT, IOT outT) -> do 
                 checkType env fnExpr (FunT argT t);
                 Right expr
-              (o,_) -> Left (TypeSynthesisError expr)
-              
+              (IOT _, errT) -> Left (ExpectedWrappedValueError expr errT)
+              (errT, _ ) -> Left (ExpectedWrappedValueError expr errT)
     _ -> do 
      (_, exprT) <- synthType env expr
-     if t == exprT
+     matchExpectedType t exprT expr
+  where 
+    matchExpectedType expected actual expr = 
+     if expected == actual
      then Right expr 
      else 
-       Left (TypeCheckError expr t)
+       Left (TypeCheckError expr expected)
 
 
 
@@ -110,8 +117,8 @@ synthType env expr =
         checkType env annExpr annT;
         Right (expr, annT)
       IOBind argExpr fnExpr -> do
-        (_, fnType) <- synthType env fnExpr;  
-        case fnType of
+        (_, t) <- synthType env fnExpr;  
+        case t of
           -- Check that the fnExpr is a function type
           FunT argT outT -> do 
             case outT of 
@@ -120,8 +127,8 @@ synthType env expr =
                 -- Check that argument is argT wrapped in IOT
                 checkType env argExpr (IOT argT);
                 Right (expr, outT)
-              o -> Left (ExpectedWrappedValueError expr outT)
-          o -> Left (ExpectedFunctionError expr fnType)
+              _ -> Left (ExpectedWrappedValueError expr outT)
+          _ -> Left (ExpectedFunctionError expr t)
       IOReturn retExpr -> do 
         (_, exprT)<- synthType env retExpr;
         Right (expr, IOT exprT)
