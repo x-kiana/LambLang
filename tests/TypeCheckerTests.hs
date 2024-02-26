@@ -497,7 +497,7 @@ testSynthComplex = TestCase
                 (Lam "y" (IOReturn (App (Var "x") (Var "y"))))))
             (FunT (FunT StrT StrT) (IOT StrT)))
           (Lam "x" (Var "x"))
-      env = Map.fromList [("scanf", FunT UnitT StrT)]
+      env = Map.fromList [("scanf", FunT UnitT (IOT StrT))]
     in 
       assertEqual "Only top level annotation is required"
         (checkType env expr t)
