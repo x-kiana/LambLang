@@ -31,9 +31,8 @@ instance Show TypeError where
 
 
 {- 
- - Check the type of an expression given some environment
- - Given an expression and a type, returns Right Expr if the Expression matches the type. Returns
- - an error otherwise
+ - Given a type environment, an expression, and a type, returns Right Expr if the 
+ - Expression matches the type. Returns an error otherwise.
  -}
 checkType :: TypeEnv -> Expr -> Type -> Either TypeError Expr
 checkType env expr t = 
@@ -86,8 +85,8 @@ checkType env expr t =
 
 
 {- Given a TypeEnv and an expression, returns Right (Expr, Type)  if the expression is 
- - well typed. The returned type will be the type of the expression. Otherwise, an error 
- - is returned.
+ - well typed. The returned type will be a tuple of the the expression and its type. 
+ - Otherwise, an error is returned.
  -}
 synthType :: TypeEnv -> Expr -> Either TypeError (Expr, Type)
 synthType env expr = 
