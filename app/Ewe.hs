@@ -6,7 +6,8 @@ module Ewe(
   is,
   whitespace,
   whitespace1,
-  failP
+  failP,
+  string
 ) where
 
 import Control.Applicative
@@ -56,6 +57,9 @@ runParser p ts = fst <$> evalParser p ts
 
 tok :: Eq a => a -> Parser a a
 tok = Tok
+
+string :: Eq a => [a] -> Parser a [a]
+string = foldr ((<*>) . ((:) <$>)) (pure []) . map tok
 
 is :: (a -> Bool) -> Parser a a
 is = Is
