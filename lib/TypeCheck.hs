@@ -12,7 +12,7 @@ defaultTypeEnv = Map.fromList [("readStr", FunT UnitT (IOT StrT)), ("printStr", 
 
 data TypeError 
   = TypeSynthesisError { expr :: !Expr }
-  | TypeCheckError { expr :: !Expr, expected_type :: !Type }
+  | TypeCheckError { expr :: !Expr, expected_type :: !Type, actual_type :: !Type }
   | UnboundTypeError { str :: !String }
   | LambdaSynthesisError { expr :: !Expr }
   | ExpectedWrappedValueError { expr :: !Expr, actualType:: !Type }
@@ -23,7 +23,7 @@ instance Show TypeError where
   show err = 
     case err of 
       TypeSynthesisError {expr} -> show "Failed to synthesize expression " ++ show expr ++ " to a type"
-      TypeCheckError { expr, expected_type } -> "Failed to evaluate expression " ++ show expr ++ " to the type " ++ show expected_type
+      TypeCheckError { expr, expected_type, actual_type } -> "Expected expression " ++ show expr ++ " to be type " ++ show expected_type ++ " but got " ++ show actual_type
       UnboundTypeError { str } -> "Found variable with undeclared type: " ++ str 
       LambdaSynthesisError { expr } -> "Cannot synthesize the lambda " ++ show expr
       ExpectedWrappedValueError { expr, actualType } -> "Expected value's type in expression " ++ show expr ++ " to be IOT, but got type " ++ show actualType
@@ -42,7 +42,7 @@ checkType env expr t =
         FunT argT bodyT -> do 
           checkType (insert str argT env) body bodyT;
           return expr
-        o -> Left (TypeCheckError expr t)
+        o -> Left (TypeCheckError expr t o)
     Ann body bodyT -> do 
       checkType env body bodyT;
       matchExpectedType t bodyT expr
@@ -51,7 +51,7 @@ checkType env expr t =
           IOT rt -> do 
             checkType env body rt;
             return expr
-          o -> Left (TypeCheckError expr t))
+          o -> Left (TypeCheckError expr t o))
     App fnExpr argExpr ->
       case synthType env expr of 
           Right (_, exprT) -> 
@@ -80,7 +80,7 @@ checkType env expr t =
      if expected == actual
      then Right expr 
      else 
-       Left (TypeCheckError expr expected)
+       Left (TypeCheckError expr expected actual)
 
 
 
