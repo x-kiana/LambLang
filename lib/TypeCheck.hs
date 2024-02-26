@@ -13,14 +13,6 @@ type TypeEnv = Map String Type
 -- typeCheck :: Expr -> Type -> Either String Expr
 -- typeCheck = undefined
 
-
-checkExpectedType :: Expr -> Type -> Type -> Either String Expr
-checkExpectedType expr expected actual = 
-  if expected == actual 
-  then Right expr 
-  else 
-    Left (incorrectTypeError expr expected)
-
 incorrectTypeError :: Expr -> Type -> String
 incorrectTypeError expr expected ="Incorrect type for expression " ++ show expr ++ " expected " ++ show expected
 
@@ -40,30 +32,11 @@ checkType env expr t =
             checkType (insert str argT env) body bodyT;
             Right expr
           o -> Left (incorrectTypeError expr t)
-     App fn arg -> do 
-        (_, fnT) <- synthType env fn 
-        case fnT of 
-          FunT argT bodyT -> do 
-            checkType env arg argT;
-            Right expr
-          o -> Left (incorrectFnTypeSynthesisError expr o)
      Ann body bodyT -> do 
-        checkExpectedType expr t bodyT;
-        checkType env body t;
-        Right expr
-      --   Data: IOBind (A -> IOT B) (IOT A)  :: IOT B       IOBind fn arg -> 
-     IOBind fn arg -> do
-        (_, fnT) <- synthType env fn 
-        case fnT of 
-          FunT argT bodyT -> 
-            case bodyT of 
-              IOT bodyTUnwrapped -> 
-                do
-                -- since this is an IOBind, the argument type is wrapped in an IOT
-                checkType env arg (IOT argT);
-                Right expr
-              o -> Left (incorrectTypeError expr o)
-          o -> Left (incorrectFnTypeSynthesisError expr o)
+        checkType env body bodyT;
+        if bodyT == t 
+        then Right expr
+        else Left (incorrectTypeError expr t)
      IOReturn body ->  
         case t of 
           IOT rt -> do 
@@ -90,11 +63,13 @@ synthType env expr =
         (Just t) -> Right (expr, t)
         Nothing -> Left ("Unbound variable " ++ show str ++ " has no type.")
       Lam arg body ->  Left ("Cannot synthesize lambda " ++ show expr)
-      App fnExpr argExpr -> do 
-        (_, fnType) <- synthType env fnExpr;
-        let (FunT argT outT) = fnType in do 
-          checkType  env argExpr argT;
-          Right (expr, outT)
+      App fn arg -> do 
+        (_, fnT) <- synthType env fn 
+        case fnT of 
+          FunT argT outT -> do 
+            checkType env arg argT;
+            Right (expr, outT)
+          o -> Left (incorrectFnTypeSynthesisError expr o)
       StrLit _ -> Right (expr, StrT)
       UnitLit -> Right (expr, UnitT)
       Ann annExpr annT -> do 
@@ -102,9 +77,17 @@ synthType env expr =
         Right (expr, annT)
       IOBind fnExpr argExpr -> do
         (_, fnType) <- synthType env fnExpr;  
-        let (FunT argT outT) = fnType in do 
-          checkType env argExpr argT;
-          Right (expr, outT)
+        case fnType of
+          -- Check that the fnExpr is a function type
+          FunT argT outT -> do 
+            case outT of 
+              -- Check that the outT is an IOT type
+              IOT outTUnwrapped -> do
+                -- Check that argument is argT wrapped in IOT
+                checkType env argExpr (IOT argT);
+                Right (expr, outT)
+              o -> Left (incorrectTypeError expr o)
+          o -> Left (incorrectFnTypeSynthesisError expr o)
       IOReturn retExpr -> do 
         (_, exprT)<- synthType env retExpr;
         Right (expr, IOT exprT)

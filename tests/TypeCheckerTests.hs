@@ -5,7 +5,7 @@ import Data.Map (Map, lookup, insert)
 import Data.Either
 import qualified Data.Map as Map
 import DataTypes (Expr (..), Type (..))
-import TypeCheck (checkType)
+import TypeCheck (checkType, synthType)
 
 
 -- StrLit
@@ -126,16 +126,23 @@ testIOReturnLamExpr = TestCase
 testAnnotatedIOReturnLamExpr:: Test
 testAnnotatedIOReturnLamExpr = TestCase 
   (let expr = Ann (IOReturn (Lam "x" (Var "x"))) (IOT (FunT StrT StrT)) in 
-    assertEqual "UnitT is not a valid IOReturn UnitLit"  
+    assertEqual "Check that annotation works with IOT"  
       (checkType Map.empty expr (IOT (FunT StrT StrT)))
       (Right expr))
 
 testFalseAnnotatedIOReturnLamExpr:: Test
 testFalseAnnotatedIOReturnLamExpr = TestCase 
   (let expr = Ann (IOReturn (Lam "x" (Var "x"))) (FunT StrT StrT) in 
+    assertBool "Annotation is false"  
+      (isLeft 
+        (checkType Map.empty expr (FunT StrT StrT))))
+
+testFalseTypeCheckAnnotated :: Test
+testFalseTypeCheckAnnotated = TestCase 
+  (let expr = Ann (IOReturn (Lam "x" (Var "x"))) (IOT (FunT StrT StrT)) in 
     assertBool "UnitT is not a valid IOReturn UnitLit"  
       (isLeft 
-        (checkType Map.empty expr (IOT (FunT StrT StrT)))))
+        (checkType Map.empty expr (FunT StrT StrT))))
 
 testNestedAnnotation :: Test 
 testNestedAnnotation = TestCase 
@@ -216,13 +223,23 @@ testIncorrectArgType = TestCase
       (isLeft 
         (checkType env expr StrT)))
 
-testApplyingAnIOBind :: Test 
-testApplingAnIOBind = TestCase 
+testApplyingWithAnnotation :: Test 
+testApplyingWithAnnotation = TestCase 
   (let 
-    expr = App (IOBind (Ann (Lam "x" (IOReturn (Var "x"))) (FunT StrT (IOT StrT)))) (IOReturn StrT)
+    expr = App (Ann (Lam "x" (IOReturn (Var "x"))) (FunT StrT (IOT StrT))) (StrLit "hi")
   in 
-    assertBool "Cannot partially apply an IOBind"
-      (isLeft (checkType env expr (IOT StrT))
+    assertEqual "Apply should work with annotated lambda"
+      (checkType Map.empty expr (IOT StrT))
+      (Right expr))
+
+
+testApplyingWithNoFunctionPassed :: Test 
+testApplyingWithNoFunctionPassed = TestCase 
+  (let 
+    expr = App (StrLit "hello") (StrLit "hi")
+  in 
+    assertBool "Apply cannot take StrLit in the function position"
+      (isLeft (checkType Map.empty expr (IOT StrT))))
 
 -- IOBind
 testIOBind :: Test 
@@ -278,7 +295,195 @@ testIOBindWithIncorrectEnvVars  = TestCase
       assertBool "IO Bind should do typechecking using only env variabiales"
         (isLeft (checkType env expr (IOT StrT))))
 
--- Synth test
+testIOBindWithNonfunction :: Test 
+testIOBindWithNonfunction = TestCase 
+  (let  expr = IOBind (Var "ioBindFun") (Var "ioval")
+        env = Map.fromList [("ioBindFun", StrT), ("ioval", IOT StrT)]
+    in 
+      assertBool "IO Bind must take FunT as first argument"
+        (isLeft (checkType env expr (IOT StrT))))
+
+{- Synth Tests -}
+-- Synth Var
+testSynthVarNoEnv :: Test
+testSynthVarNoEnv = TestCase
+  (let  expr = Var "str"
+        env = Map.empty
+    in 
+    assertBool "Cannot Synthesize Var without Env"
+      (isLeft
+        (synthType env expr)))
+
+
+testSynthVarIrrelevantEnv :: Test
+testSynthVarIrrelevantEnv = TestCase
+  (let  expr = Var "str"
+        env = Map.fromList [("hi", StrT)]
+    in 
+    assertBool "Cannot Synthesize Var with irrelevant env"
+      (isLeft
+        (synthType env expr)))
+
+testSynthVarCorrectEnv :: Test
+testSynthVarCorrectEnv = TestCase
+  (let  expr = Var "str"
+        env = Map.fromList [("str", StrT)]
+        t = StrT
+    in 
+    assertEqual "Must synthesize Var using env"
+        (synthType env expr)
+        (Right (expr, t)))
+-- Synth Lam 
+testSynthLam :: Test
+testSynthLam = TestCase
+  (let  expr = Lam "x" (StrLit "x")
+        env = Map.empty
+        t = StrT
+    in 
+    assertBool "Lam cannot be synthed"
+        (isLeft 
+          (synthType env expr)))
+
+-- Synth App
+testSynthApp :: Test
+testSynthApp = TestCase
+  (let  expr = App (Ann (Lam "x" (StrLit "x")) (FunT StrT StrT)) (StrLit "hello")
+        env = Map.empty
+        t = StrT
+    in 
+    assertEqual "Should be able to synth application of an annotated lambda"
+        (synthType env expr)
+        (Right (expr, t)))
+
+
+testSynthAppFromEnv :: Test
+testSynthAppFromEnv = TestCase
+  (let  expr = App (Var "fun") (Var "val")
+        env = Map.fromList [("fun", FunT StrT StrT), ("val", StrT)]
+        t = StrT
+    in 
+    assertEqual "Should be able to synth application of env defined lambda"
+        (synthType env expr)
+        (Right (expr, t)))
+
+
+testSynthAppErrFromEnv :: Test
+testSynthAppErrFromEnv = TestCase
+  (let  expr = App (Var "fun") (StrLit "hello")
+        env = Map.fromList [("fun", FunT UnitT StrT)]
+        t = StrT
+    in 
+    assertBool "Should be able to synth application of env defined lambda"
+        (isLeft (synthType env expr)))
+
+testSynthAppErrFromAnn :: Test
+testSynthAppErrFromAnn = TestCase
+  (let  expr = App (Ann UnitLit (FunT StrT StrT)) (StrLit "hello")
+        env = Map.empty
+        t = StrT
+    in 
+    assertBool "Should be able to synth application of env defined lambda"
+        (isLeft (synthType env expr)))
+
+-- Synth StrLit 
+
+testSynthStrLit :: Test
+testSynthStrLit = TestCase
+  (let  expr = StrLit "text"
+        env = Map.empty
+        t = StrT
+    in 
+      assertEqual "Should be able to synth application of env defined lambda"
+        (synthType env expr)
+        (Right (expr, t)))
+
+testSynthStrLitFromEnv :: Test
+testSynthStrLitFromEnv = TestCase
+  (let  expr = Var "text"
+        env = Map.fromList [("text", StrT)]
+        t = StrT
+    in 
+      assertEqual "Should be able to synth application of env defined lambda"
+        (synthType env expr)
+        (Right (expr, t)))
+
+-- Synth UnitT
+testSynthUnitLit :: Test
+testSynthUnitLit = TestCase
+  (let  expr = UnitLit
+        env = Map.empty
+        t = UnitT
+    in 
+      assertEqual "Should be able to synth application of env defined lambda"
+        (synthType env expr)
+        (Right (expr, t)))
+
+testSynthUnitLitFromEnv :: Test
+testSynthUnitLitFromEnv = TestCase
+  (let  expr = Var "text"
+        env = Map.fromList [("text", UnitT)]
+        t = UnitT
+    in 
+      assertEqual "Should be able to synth application of env defined lambda"
+        (synthType env expr)
+        (Right (expr, t)))
+
+-- Synth Ann
+testSynthAnn :: Test
+testSynthAnn = TestCase
+  (let  
+      t = FunT StrT StrT
+      expr = Ann (Lam "hello" (Var "hello")) t
+      env = Map.empty
+    in 
+      assertEqual "Should be able to synth application of env defined lambda"
+        (synthType env expr)
+        (Right (expr, t)))
+
+-- Synth IOBind 
+testSynthIOBind :: Test 
+testSynthIOBind = TestCase
+  (let 
+      t = IOT StrT
+      expr = IOBind (Ann (Lam "x" (IOReturn (Var "x"))) (FunT StrT (IOT StrT))) (IOReturn (StrLit "text"))
+      env = Map.empty
+    in 
+      assertEqual "Should be able to synth application of env defined lambda"
+        (synthType env expr)
+        (Right (expr, t)))
+
+testSynthBadIOBindFunErr :: Test 
+testSynthBadIOBindFunErr = TestCase
+  (let 
+      t = FunT StrT (IOT StrT)
+      expr = IOBind (StrLit "x") (IOReturn (StrLit "text"))
+      env = Map.empty
+    in 
+      assertBool "Should be able to synth application of env defined lambda"
+        (isLeft (synthType env expr)))
+
+-- Synth IOReturn
+testSynthIOReturn :: Test
+testSynthIOReturn = TestCase 
+  (let 
+      t = IOT StrT
+      expr = IOReturn (StrLit "Hello")
+      env = Map.empty
+    in 
+      assertEqual "Should be able to synth application of env defined lambda"
+        (synthType env expr)
+        (Right (expr, t)))
+
+testEnvSynthIOReturn = TestCase 
+  (let 
+      t = IOT StrT
+      expr = IOReturn (Var "x")
+      env = Map.fromList [("x", StrT)]
+    in 
+      assertEqual "Should be able to synth application of env defined lambda"
+        (synthType env expr)
+        (Right (expr, t)))
+
 
 
 huTests :: Test 
@@ -313,4 +518,26 @@ huTests = TestList [
   , testIOBindIncorrectFunctionAnnotation
   , testIOBindWithEnvVars
   , testWrongCheckTypeInLam
+  , testApplyingWithAnnotation
+  , testApplyingWithNoFunctionPassed
+  , testFalseTypeCheckAnnotated
+  , testIOBindWithNonfunction
+  {- Synth Tests -}
+  , testSynthVarNoEnv
+  , testSynthVarIrrelevantEnv
+  , testSynthVarCorrectEnv
+  , testSynthApp
+  , testSynthAppFromEnv
+  , testSynthAppErrFromEnv
+  , testSynthAppErrFromAnn
+  , testSynthStrLit
+  , testSynthStrLitFromEnv
+  , testSynthUnitLit 
+  , testSynthUnitLitFromEnv
+  , testSynthAnn
+  , testSynthIOBind
+  , testSynthBadIOBindFunErr
+  , testSynthIOReturn
+  , testEnvSynthIOReturn
   ]
+
