@@ -11,12 +11,12 @@ type TypeEnv = Map String Type
 defaultTypeEnv = Map.fromList [("readStr", FunT UnitT (IOT StrT)), ("printStr", FunT StrT (IOT UnitT))]
 
 data TypeError 
-  = TypeSynthesisError {expr :: !Expr}
+  = TypeSynthesisError { expr :: !Expr }
   | TypeCheckError { expr :: !Expr, expected_type :: !Type }
-  | UnboundTypeError { str :: !String}
-  | LambdaSynthesisError {expr :: !Expr}
-  | ExpectedWrappedValueError {expr :: !Expr, actualType:: !Type}
-  | ExpectedFunctionError {expr :: !Expr, actualType :: !Type}
+  | UnboundTypeError { str :: !String }
+  | LambdaSynthesisError { expr :: !Expr }
+  | ExpectedWrappedValueError { expr :: !Expr, actualType:: !Type }
+  | ExpectedFunctionError { expr :: !Expr, actualType :: !Type }
   deriving (Eq)
 
 instance Show TypeError where 
@@ -41,7 +41,7 @@ checkType env expr t =
       case t of 
         FunT argT bodyT -> do 
           checkType (insert str argT env) body bodyT;
-          Right expr
+          return expr
         o -> Left (TypeCheckError expr t)
     Ann body bodyT -> do 
       checkType env body bodyT;
@@ -50,7 +50,7 @@ checkType env expr t =
       (case t of 
           IOT rt -> do 
             checkType env body rt;
-            Right expr
+            return expr
           o -> Left (TypeCheckError expr t))
     App fnExpr argExpr ->
       case synthType env expr of 
@@ -59,7 +59,7 @@ checkType env expr t =
           Left _ -> do
             (_, argT) <- synthType env argExpr
             checkType env fnExpr (FunT argT t);
-            Right expr
+            return expr
     IOBind argExpr fnExpr -> 
        case synthType env expr of
          Right (_, exprT) -> 
@@ -69,7 +69,7 @@ checkType env expr t =
             case (wrappedArgT, t) of 
               (IOT argT, IOT outT) -> do 
                 checkType env fnExpr (FunT argT t);
-                Right expr
+                return expr
               (IOT _, errT) -> Left (ExpectedWrappedValueError expr errT)
               (errT, _ ) -> Left (ExpectedWrappedValueError expr errT)
     _ -> do 
@@ -106,7 +106,7 @@ synthType env expr =
       UnitLit -> Right (expr, UnitT)
       Ann annExpr annT -> do 
         checkType env annExpr annT;
-        Right (expr, annT)
+        return (expr, annT)
       IOBind argExpr fnExpr -> do
         (_, t) <- synthType env fnExpr;  
         case t of
@@ -122,6 +122,6 @@ synthType env expr =
           _ -> Left (ExpectedFunctionError expr t)
       IOReturn retExpr -> do 
         (_, exprT)<- synthType env retExpr;
-        Right (expr, IOT exprT)
+        return (expr, IOT exprT)
 
 
