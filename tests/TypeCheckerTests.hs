@@ -484,6 +484,24 @@ testEnvSynthIOReturn = TestCase
         (synthType env expr)
         (Right (expr, t)))
 
+-- Synth Complex
+testSynthComplex = TestCase 
+  (let 
+      t = IOT StrT
+      expr = 
+        App 
+          (Ann 
+            (Lam "x" 
+              (IOBind
+                (Lam "y" (IOReturn (App (Var "x") (Var "y"))))
+                (App (Var "scanf") UnitLit)))
+            (FunT (FunT StrT StrT) (IOT StrT)))
+          (Lam "x" (Var "x"))
+      env = Map.fromList [("scanf", FunT UnitT StrT)]
+    in 
+      assertEqual "Only top level annotation is required"
+        (checkType env expr t)
+        (Right expr))
 
 
 huTests :: Test 
@@ -539,5 +557,6 @@ huTests = TestList [
   , testSynthBadIOBindFunErr
   , testSynthIOReturn
   , testEnvSynthIOReturn
+  , testSynthComplex
   ]
 
