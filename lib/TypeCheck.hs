@@ -26,29 +26,41 @@ incorrectFnTypeSynthesisError expr t = "Expected function type for expression " 
 checkType :: TypeEnv -> Expr -> Type -> Either String Expr
 checkType env expr t = 
   case expr of 
-     Lam str body-> 
-        case t of 
-          FunT argT bodyT -> do 
-            checkType (insert str argT env) body bodyT;
-            Right expr
-          o -> Left (incorrectTypeError expr t)
-     Ann body bodyT -> do 
-        checkType env body bodyT;
-        if bodyT == t 
-        then Right expr
-        else Left (incorrectTypeError expr t)
-     IOReturn body ->  
-        case t of 
+    Lam str body-> 
+      case t of 
+        FunT argT bodyT -> do 
+          checkType (insert str argT env) body bodyT;
+          Right expr
+        o -> Left (incorrectTypeError expr t)
+    Ann body bodyT -> do 
+      checkType env body bodyT;
+      if bodyT == t 
+      then Right expr
+      else Left (incorrectTypeError expr t)
+    IOReturn body ->
+      (case t of 
           IOT rt -> do 
             checkType env body rt;
             Right expr
-          o -> Left (incorrectTypeError expr t)
-     _ -> do 
-      (_, exprT) <- synthType env expr
-      if t == exprT
-      then Right expr 
-      else 
-        Left (incorrectTypeError expr t)
+          o -> Left (incorrectTypeError expr t))
+    IOBind argExpr fnExpr -> do
+       (_, fnType) <- synthType env fnExpr;  
+       case fnType of
+         -- Check that the fnExpr is a function type
+         FunT argT outT -> do 
+           case outT of 
+             -- Check that the outT is an IOT type
+             IOT outTUnwrapped -> do
+               -- Check that argument is argT wrapped in IOT
+               checkType env argExpr (IOT argT);
+               Right expr
+             o -> Left (incorrectTypeError expr o)
+    _ -> do 
+     (_, exprT) <- synthType env expr
+     if t == exprT
+     then Right expr 
+     else 
+       Left (incorrectTypeError expr t)
 
 
 
@@ -75,7 +87,7 @@ synthType env expr =
       Ann annExpr annT -> do 
         checkType env annExpr annT;
         Right (expr, annT)
-      IOBind fnExpr argExpr -> do
+      IOBind argExpr fnExpr -> do
         (_, fnType) <- synthType env fnExpr;  
         case fnType of
           -- Check that the fnExpr is a function type

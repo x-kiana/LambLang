@@ -244,7 +244,7 @@ testApplyingWithNoFunctionPassed = TestCase
 -- IOBind
 testIOBind :: Test 
 testIOBind = TestCase
-  (let  expr = IOBind (Ann (Lam "x" (IOReturn (Var "x"))) (FunT StrT (IOT StrT))) (IOReturn (StrLit "hello"))
+  (let  expr = IOBind (IOReturn (StrLit "hello")) (Ann (Lam "x" (IOReturn (Var "x"))) (FunT StrT (IOT StrT)))
         env = Map.empty
     in 
     assertEqual "Cannot pass UnitLit as arg to lam taking str"  
@@ -254,7 +254,7 @@ testIOBind = TestCase
 testIOBindIncorrectReturn :: Test 
 testIOBindIncorrectReturn = TestCase
   (let  
-      expr = IOBind (Ann (Lam "x" (Var "x")) (FunT StrT StrT)) (IOReturn (StrLit "hello"))
+      expr = IOBind (IOReturn (StrLit "hello")) (Ann (Lam "x" (Var "x")) (FunT StrT StrT))
       env = Map.empty
     in 
     assertBool "Function passed to IOBind should be an IOReturn"  
@@ -263,7 +263,7 @@ testIOBindIncorrectReturn = TestCase
 
 testIOBindIncorrectArg :: Test 
 testIOBindIncorrectArg = TestCase
-  (let  expr = IOBind (Ann (Lam "x" (IOReturn (Var "x"))) (FunT StrT (IOT StrT))) (StrLit "hello")
+  (let  expr = IOBind (StrLit "hello") (Ann (Lam "x" (IOReturn (Var "x"))) (FunT StrT (IOT StrT)))
         env = Map.empty
     in 
     assertBool "Argument passed to an IOBind must be an IOT"  
@@ -272,7 +272,7 @@ testIOBindIncorrectArg = TestCase
 
 testIOBindIncorrectFunctionAnnotation :: Test 
 testIOBindIncorrectFunctionAnnotation = TestCase
-  (let  expr = IOBind (Ann (Lam "x" (IOReturn (StrLit "x"))) (FunT StrT (IOT UnitT))) (IOReturn (StrLit "hello"))
+  (let  expr = IOBind (IOReturn (StrLit "hello")) (Ann (Lam "x" (IOReturn (StrLit "x"))) (FunT StrT (IOT UnitT)))
         env = Map.empty
     in 
     assertBool "Must typecheck the return from an IOBind"  
@@ -280,7 +280,7 @@ testIOBindIncorrectFunctionAnnotation = TestCase
 
 testIOBindWithEnvVars :: Test 
 testIOBindWithEnvVars  = TestCase 
-  (let  expr = IOBind (Var "ioBindFun") (Var "ioval")
+  (let  expr = IOBind (Var "ioval") (Var "ioBindFun")
         env = Map.fromList [("ioBindFun", FunT StrT (IOT StrT)), ("ioval", IOT StrT)]
     in 
       assertEqual "IO Bind should do typechecking using only env variabiales"
@@ -289,7 +289,7 @@ testIOBindWithEnvVars  = TestCase
 
 testIOBindWithIncorrectEnvVars :: Test 
 testIOBindWithIncorrectEnvVars  = TestCase 
-  (let  expr = IOBind (Var "ioBindFun") (Var "ioval")
+  (let  expr = IOBind (Var "ioval") (Var "ioBindFun") 
         env = Map.fromList [("ioBindFun", FunT UnitT (IOT StrT)), ("ioval", IOT StrT)]
     in 
       assertBool "IO Bind should do typechecking using only env variabiales"
@@ -297,7 +297,7 @@ testIOBindWithIncorrectEnvVars  = TestCase
 
 testIOBindWithNonfunction :: Test 
 testIOBindWithNonfunction = TestCase 
-  (let  expr = IOBind (Var "ioBindFun") (Var "ioval")
+  (let  expr = IOBind (Var "ioval") (Var "ioBindFun")
         env = Map.fromList [("ioBindFun", StrT), ("ioval", IOT StrT)]
     in 
       assertBool "IO Bind must take FunT as first argument"
@@ -445,7 +445,7 @@ testSynthIOBind :: Test
 testSynthIOBind = TestCase
   (let 
       t = IOT StrT
-      expr = IOBind (Ann (Lam "x" (IOReturn (Var "x"))) (FunT StrT (IOT StrT))) (IOReturn (StrLit "text"))
+      expr = IOBind (IOReturn (StrLit "text")) (Ann (Lam "x" (IOReturn (Var "x"))) (FunT StrT (IOT StrT)))
       env = Map.empty
     in 
       assertEqual "Should be able to synth application of env defined lambda"
@@ -456,7 +456,7 @@ testSynthBadIOBindFunErr :: Test
 testSynthBadIOBindFunErr = TestCase
   (let 
       t = FunT StrT (IOT StrT)
-      expr = IOBind (StrLit "x") (IOReturn (StrLit "text"))
+      expr = IOBind (IOReturn (StrLit "text")) (StrLit "x")
       env = Map.empty
     in 
       assertBool "Should be able to synth application of env defined lambda"
@@ -493,8 +493,8 @@ testSynthComplex = TestCase
           (Ann 
             (Lam "x" 
               (IOBind
-                (Lam "y" (IOReturn (App (Var "x") (Var "y"))))
-                (App (Var "scanf") UnitLit)))
+                (App (Var "scanf") UnitLit)
+                (Lam "y" (IOReturn (App (Var "x") (Var "y"))))))
             (FunT (FunT StrT StrT) (IOT StrT)))
           (Lam "x" (Var "x"))
       env = Map.fromList [("scanf", FunT UnitT StrT)]
