@@ -8,18 +8,7 @@ import DataTypes (Expr (..), Type (..))
 type TypeEnv = Map String Type
 
 
-{- Given an expression and a type, returns Right Expr if the Expression matches the type. Returns
- - an error otherwise
- -}
--- typeCheck :: Expr -> Type -> Either String Expr
--- typeCheck = undefined
-
-incorrectTypeError :: Expr -> Type -> String
-incorrectTypeError expr expected ="Incorrect type for expression " ++ show expr ++ " expected " ++ show expected
-
-
-incorrectFnTypeSynthesisError :: Expr -> Type -> String 
-incorrectFnTypeSynthesisError expr t = "Expected function type for expression " ++ show expr ++ " but got type: " ++ show t
+defaultTypeEnv = Map.fromList [("readStr", FunT UnitT (IOT StrT)), ("printStr", FunT StrT (IOT UnitT))]
 
 data TypeError 
   = TypeSynthesisError {expr :: !Expr}
@@ -41,7 +30,10 @@ instance Show TypeError where
       ExpectedFunctionError { expr , actualType } -> "Expected expression " ++ show expr ++ " to be a function, but got " ++ show actualType
 
 
-{- Helper function to typeCheck
+{- 
+ - Check the type of an expression given some environment
+ - Given an expression and a type, returns Right Expr if the Expression matches the type. Returns
+ - an error otherwise
  -}
 checkType :: TypeEnv -> Expr -> Type -> Either TypeError Expr
 checkType env expr t = 
