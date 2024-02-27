@@ -14,7 +14,26 @@ varP :: Parser Char String
 varP = some (is varChar)
 
 exprP :: Parser Char Expr
-exprP = precedenceP [ annP, appP ] argP
+exprP = precedenceP [ annP, ioP, appP, ioRet ] argP
+
+ioRet :: Parser Char Expr -> Parser Char Expr
+ioRet p = (do 
+  string "return"
+  whitespace
+  ret <- p
+  pure (IOReturn ret)) <|> p
+
+
+ioP :: Parser Char Expr -> Parser Char Expr
+ioP p = do 
+  f <- p
+  args <- many (whitespace *> string ">>=" *> whitespace *> p)
+  pure (buildIOBind f args)
+  where
+    buildIOBind f args =
+      case args of 
+        [] -> f 
+        (h:t) -> IOBind f (buildIOBind h t)
 
 argP :: Parser Char Expr
 argP = foldr (<|>) failP [ Var <$> varP, parensP exprP, lamP ]
@@ -23,10 +42,11 @@ parensP :: Parser Char a -> Parser Char a
 parensP p = tok '(' *> whitespace *> p <* whitespace <* tok ')'
 
 appP :: Parser Char Expr -> Parser Char Expr
-appP p =
-  (\f -> maybe f (foldl App f))
-    <$> p
-    <*> ((Just <$> many (whitespace1 *> p)) <|> pure Nothing)
+appP p = do
+  f <- p 
+  args <- many (whitespace *> p)
+  pure (foldl App f args)
+
 
 lamP :: Parser Char Expr
 lamP = do
@@ -63,3 +83,4 @@ precP :: [(Parser Char (), Expr -> Expr -> Expr)] -> (Parser Char Expr) -> Parse
 
 exprP = precP [(whitespace *> tok ':'
 -}
+
