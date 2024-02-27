@@ -24,7 +24,7 @@ extra-source-files:
     README.md
 
 library 
-  exposed-modules: DataTypes, TypeCheck, Ewe, Parse
+  exposed-modules: DataTypes, TypeCheck, Ewe, Parse, Eval
   hs-source-dirs: lib
   build-depends: base >=4.14.3.0, containers
   default-language: Haskell2010
@@ -45,7 +45,7 @@ test-suite tests
   type: exitcode-stdio-1.0
   main-is: test.hs 
   build-depends: base >=4.14.3.0, HUnit, LambLang, containers
-  other-modules: TypeCheckerTests
+  other-modules: TypeCheckerTests, EvalTests
   hs-source-dirs: tests 
   default-language: Haskell2010
   ghc-options: 

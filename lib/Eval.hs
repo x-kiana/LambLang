@@ -1,4 +1,4 @@
-module Eval {eval} where
+module Eval where
 import DataTypes
 
 -- Datatype representing values in LambLang
@@ -7,6 +7,20 @@ data Val =
    | UnitV
    | FunV (Val -> Either String Val)
    | IOV (IO (Either String Val))
+
+-- defining equality, mostly for testing purposes
+instance Eq Val where
+    StrV x == StrV y = x == y
+    UnitV == UnitV = True
+    FunV x == FunV y = False
+    IOV x == IOV y = False
+
+-- defining show, for testing purposes
+instance Show Val where
+    show (StrV s) = show s
+    show UnitV = show ()
+    show (FunV x) = "<procedure>"
+    show (IOV x) = "<IO>"
 
 -- An environment to keep track of values
 -- Implemented as a list of tuples of the variable names and their values
