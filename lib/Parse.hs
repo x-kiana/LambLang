@@ -30,7 +30,7 @@ ioP p = do
   pure (mkRAssocOp IOBind f args)
 
 argP :: Parser Char Expr
-argP = foldr (<|>) failP [ Var <$> varP, parensP exprP, lamP ]
+argP = foldr (<|>) failP [ Var <$> varP, parensP exprP, lamP, stringP, unitP ]
 
 parensP :: Parser Char a -> Parser Char a
 parensP p = tok '(' *> whitespace *> p <* whitespace <* tok ')'
@@ -65,6 +65,19 @@ annP p = do
 
 typP :: Parser Char Type
 typP = precedenceP [funTP, ioTP] argTP
+
+stringP :: Parser Char Expr
+stringP = do
+  tok '"'
+  s <- many (is (/='"'))
+  tok '"'
+  pure (StrLit s)
+
+unitP :: Parser Char Expr
+unitP = do
+  tok '('
+  tok ')'
+  pure (UnitLit)
 
 argTP :: Parser Char Type
 argTP = stringTP <|> unitTP <|> parensP typP
