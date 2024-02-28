@@ -23,17 +23,11 @@ ioRet p = (do
   ret <- p
   pure (IOReturn ret)) <|> p
 
-
 ioP :: Parser Char Expr -> Parser Char Expr
 ioP p = do 
   f <- p
   args <- many (whitespace *> string ">>=" *> whitespace *> p)
-  pure (buildIOBind f args)
-  where
-    buildIOBind f args =
-      case args of 
-        [] -> f 
-        (h:t) -> IOBind f (buildIOBind h t)
+  pure (mkRAssocOp IOBind f args)
 
 argP :: Parser Char Expr
 argP = foldr (<|>) failP [ Var <$> varP, parensP exprP, lamP ]
@@ -46,7 +40,6 @@ appP p = do
   f <- p 
   args <- many (whitespace *> p)
   pure (foldl App f args)
-
 
 lamP :: Parser Char Expr
 lamP = do
@@ -71,16 +64,34 @@ annP p = do
   pure (maybe exp (Ann exp) maybeT)
 
 typP :: Parser Char Type
-typP = stringTP
+typP = precedenceP [funTP, ioTP] argTP
+
+argTP :: Parser Char Type
+argTP = stringTP <|> unitTP <|> parensP typP
+
+funTP :: Parser Char Type -> Parser Char Type
+funTP p = do
+  dom <- p
+  whitespace
+  codoms <- many (whitespace *> string "->" *> whitespace *> p)
+  pure (mkRAssocOp FunT dom codoms)
+
+ioTP :: Parser Char Type -> Parser Char Type
+ioTP p = (do
+  string "IO"
+  whitespace1
+  t <- p
+  pure (IOT t)) <|> p
 
 stringTP :: Parser Char Type
 stringTP = string "String" *> pure StrT
 
+unitTP :: Parser Char Type
+unitTP = string "Unit" *> pure UnitT
+
 precedenceP :: [Parser t a -> Parser t a] -> (Parser t a) -> Parser t a
 precedenceP ps p = foldr ($) p ps
-{-
-precP :: [(Parser Char (), Expr -> Expr -> Expr)] -> (Parser Char Expr) -> Parser Char Expr
 
-exprP = precP [(whitespace *> tok ':'
--}
-
+mkRAssocOp :: (a -> a -> a) -> a -> [a] -> a
+mkRAssocOp f a [] = a
+mkRAssocOp f a (hd : tl) = f a (mkRAssocOp f hd tl)
