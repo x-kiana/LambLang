@@ -16,10 +16,14 @@ main :: IO ()
 main = do
   putStr "LambLang> "
   hFlush stdout
-  line <- getLine
-  case run line of
-    Left msg -> print msg
-    Right e -> eval e
-  hFlush stdout
-  putStrLn ""
-  main
+  isEof <- hIsEOF stdin
+  if isEof
+  then return ()
+  else do
+    line <- hGetLine stdin
+    case run line of
+      Left msg -> hPutStr stdout msg
+      Right e -> eval e
+    putStrLn ""
+    hFlush stdout
+    main

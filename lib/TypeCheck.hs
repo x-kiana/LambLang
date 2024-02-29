@@ -14,7 +14,6 @@ data TypeError
   = TypeSynthesisError { expr :: !Expr }
   | TypeCheckError { expr :: !Expr, expected_type :: !Type, actual_type :: !Type }
   | UnboundTypeError { str :: !String }
-  | LambdaSynthesisError { expr :: !Expr }
   | ExpectedWrappedValueError { expr :: !Expr, actualType:: !Type }
   | ExpectedFunctionError { expr :: !Expr, actualType :: !Type }
   | UnexpectedLambda { expr :: !Expr, expected_type :: !Type }
@@ -23,14 +22,14 @@ data TypeError
 instance Show TypeError where 
   show err = 
     case err of 
-      TypeSynthesisError {expr} -> show "Failed to synthesize expression " ++ show expr ++ " to a type"
-      TypeCheckError { expr, expected_type, actual_type } -> "Expected expression " ++ show expr ++ " to be type " ++ show expected_type ++ " but got " ++ show actual_type
-      UnboundTypeError { str } -> "Found variable with undeclared type: " ++ str 
-      LambdaSynthesisError { expr } -> "Cannot synthesize the lambda " ++ show expr
-      ExpectedWrappedValueError { expr, actualType } -> "Expected value's type in expression " ++ show expr ++ " to be IOT, but got type " ++ show actualType
-      ExpectedFunctionError { expr , actualType } -> "Expected expression " ++ show expr ++ " to be a function, but got " ++ show actualType
-      UnexpectedLambda { expr, expected_type } -> "Expected " ++ show expr ++ " to be a " ++ show expected_type ++ " but is a lambda"
-
+      TypeSynthesisError {expr} -> "Cannot synthesize a type for `" ++ show expr ++ "`"
+      TypeCheckError { expr, expected_type, actual_type } ->
+        "Expected expression `" ++ show expr ++ "` to be of type `" ++ show expected_type ++ "` but is of type `" ++ show actual_type ++ "`"
+      UnboundTypeError { str } -> "Found undefined variable `" ++ str ++ "`"
+      ExpectedWrappedValueError { expr, actualType } ->
+        "Expected expression `" ++ show expr ++ "` to have an IO type, but is of type `" ++ show actualType ++ "`"
+      ExpectedFunctionError { expr , actualType } -> "Expected expression `" ++ show expr ++ "` to have a function type, but is of type `" ++ show actualType ++ "`"
+      UnexpectedLambda { expr, expected_type } -> "Expected `" ++ show expr ++ "` to be of type `" ++ show expected_type ++ "` but is a lambda"
 
 {- 
  - Given a type environment, an expression, and a type, returns Right Expr if the 
@@ -96,7 +95,7 @@ synthType env expr =
       Var str -> case Map.lookup str env of 
         (Just t) -> Right (expr, t)
         Nothing -> Left (UnboundTypeError str)
-      Lam arg body ->  Left (LambdaSynthesisError expr)
+      Lam arg body -> Left (TypeSynthesisError expr)
       App fn arg -> do 
         (_, fnT) <- synthType env fn 
         case fnT of 
