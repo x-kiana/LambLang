@@ -81,11 +81,15 @@ annP p = do
     pure (Just t)) <|> pure Nothing
   pure (maybe exp (Ann exp) maybeT)
 
+-- parse a valid string character
+stringCharP :: Parser Char Char
+stringCharP = (is (\c -> (c /= '"') && (c /= '\\'))) <|> (tok '\\' *> tok 'n' *> pure '\n') <|> (tok '\\' *> is (const True))
+
 -- parse a string literal
 stringP :: Parser Char Expr
 stringP = do
   tok '"'
-  s <- many (is (/='"'))
+  s <- many (stringCharP)
   tok '"'
   pure (StrLit s)
 
