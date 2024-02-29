@@ -1,5 +1,7 @@
 module Eval where
+
 import DataTypes
+import System.IO
 
 -- Datatype representing values in LambLang
 data Val =
@@ -40,12 +42,12 @@ envPut str v valEnv = (str, v):valEnv
 
 -- builtin function value to print strings
 printStr :: Val
-printStr = FunV (\(StrV s) -> Right (IOV (putStr s >> return (Right UnitV))))
+printStr = FunV (\(StrV s) -> Right (IOV (putStr s >> hFlush stdout >> return (Right UnitV))))
 
 -- builtin IO value to read strings
 readStr :: Val
 readStr = IOV (do
-  s <- readLn
+  s <- getLine
   return (Right (StrV s)))
 
 -- initial environment, includes the builting readStr and printStr values

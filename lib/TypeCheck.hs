@@ -8,7 +8,7 @@ import DataTypes (Expr (..), Type (..))
 type TypeEnv = Map String Type
 
 
-defaultTypeEnv = Map.fromList [("readStr", FunT UnitT (IOT StrT)), ("printStr", FunT StrT (IOT UnitT))]
+defaultTypeEnv = Map.fromList [("readStr", IOT StrT), ("printStr", FunT StrT (IOT UnitT))]
 
 data TypeError 
   = TypeSynthesisError { expr :: !Expr }
@@ -17,6 +17,7 @@ data TypeError
   | LambdaSynthesisError { expr :: !Expr }
   | ExpectedWrappedValueError { expr :: !Expr, actualType:: !Type }
   | ExpectedFunctionError { expr :: !Expr, actualType :: !Type }
+  | UnexpectedLambda { expr :: !Expr, expected_type :: !Type }
   deriving (Eq)
 
 instance Show TypeError where 
@@ -28,6 +29,7 @@ instance Show TypeError where
       LambdaSynthesisError { expr } -> "Cannot synthesize the lambda " ++ show expr
       ExpectedWrappedValueError { expr, actualType } -> "Expected value's type in expression " ++ show expr ++ " to be IOT, but got type " ++ show actualType
       ExpectedFunctionError { expr , actualType } -> "Expected expression " ++ show expr ++ " to be a function, but got " ++ show actualType
+      UnexpectedLambda { expr, expected_type } -> "Expected " ++ show expr ++ " to be a " ++ show expected_type ++ " but is a lambda"
 
 
 {- 
@@ -42,7 +44,7 @@ checkType env expr t =
         FunT argT bodyT -> do 
           checkType (insert str argT env) body bodyT;
           return expr
-        o -> Left (TypeCheckError expr t o)
+        o -> Left (UnexpectedLambda expr t)
     Ann body bodyT -> do 
       checkType env body bodyT;
       matchExpectedType t bodyT expr

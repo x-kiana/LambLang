@@ -7,6 +7,12 @@ import DataTypes
 import Data.Char
 import Control.Applicative
 
+parse :: String -> Either String Expr
+parse s =
+  case runParser exprP s of
+    Nothing -> Left "Parse error: invalid LambLang expression"
+    Just exp -> Right exp
+
 varChar :: Char -> Bool
 varChar = isAlpha
 
